@@ -1,0 +1,25 @@
+#cargo-features = ["test-dummy-unstable"]
+[package]
+name = "zk-auth-srv"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[profile.dev]
+opt-level = 3
+rustc-cfg = ["nightly"]
+
+[dependencies]
+#bellman = { version = "0.13.1" }
+#pairing = "0.23"
+#zksnark = "0.0.2"
+bulletproofs = { git = "https://github.com/dalek-cryptography/bulletproofs", tag = "2.0.0" }
+clear_on_drop = "0.2.5"
+packed_simd = "0.3.3"
+aes-gcm = "0.10.1"
+pbkdf2 = "0.11.0"
+rand = "0.8"
+
+[features]
+clear_on_drop = []
+packed_simd_2 = []
