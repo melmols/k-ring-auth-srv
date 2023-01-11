@@ -1,51 +1,57 @@
-extern crate bulletproofs;
-extern crate curve25519_dalek;
 extern crate rand;
-
-use bulletproofs::r1cs::{LinearCombination, R1CSProof, Variable};
-use bulletproofs::{BulletproofGens, PedersenGens};
-use curve25519_dalek::ristretto::CompressedRistretto;
-use curve25519_dalek::scalar::Scalar;
+extern crate bellman;
+use bellman::{Circuit, Scalar};
+use bellman::groth16::{
+    create_random_proof,
+    generate_random_parameters,
+    Parameters,
+    Proof,
+    verify_proof,
+};
+use bellman::pairing::{
+    bn256::{Bn256, G1},
+};
 use rand::thread_rng;
+use std::fs::File;
+use std::io::{self, BufRead, BufReader};
 
+fn trusted_setup() -> (Parameters<Bn256>, Proof<Bn256>) {
+    let mut rng = thread_rng();
+    let circuit = <dyn Circuit<Scalar<Bn256>>>::new("keyring");
+    let params = generate_random_parameters(&circuit, &mut rng).unwrap();
+    let proof = create_random_proof(&params, &circuit, &mut rng).unwrap();
+    (params, proof)
+}
+
+fn generate_proof(password: &[u8], params: &Parameters<Bn256>) -> Proof<Bn256> {
+    let mut rng = thread_rng();
+    create_random_proof(params, &mut rng, |p| p.input(password)).unwrap()
+}
+
+fn verify_password(proof: &Proof<Bn256>, params: &Parameters<Bn256>, password: &[u8]) -> bool {
+    verify_proof(params, proof, |p| p.input(password)).is_ok()
+}
+
+fn authenticate_user(password: &[u8]) -> bool {
+    let (params, proof) = trusted_setup();
+    let generated_proof = generate_proof(password, &params);
+    verify_password(&generated_proof, &params, password)
+}
 fn main() {
-    // Generate the Pedersen generators
-    let pc_gens = PedersenGens::default();
+    println!("Enter password:");
+    let mut password = String::new();
+    io::stdin().read_line(&mut password).unwrap();
+    let password = password.trim().as_bytes();
 
-    // Generate the bulletproof generator
-    let bp_gens = BulletproofGens::new(128, 1);
+    if authenticate_user(password) {
+        println!("Authentication successful!");
 
-    // The username to authenticate
-    let username = "alice";
-
-    // The password for the user
-    let password = "correct horse battery staple";
-
-    // Generate the Pedersen commitment for the username
-    let username_commitment = CompressedRistretto::from_scalar(Scalar::from(username.as_bytes()));
-
-    // Generate the Pedersen commitment for the password
-    let password_commitment = CompressedRistretto::from_scalar(Scalar::from(password.as_bytes()));
-
-    // Create the R1CS proof
-    let mut prover_transcript = bulletproofs::r1cs::ProverTranscript::new(&pc_gens);
-
-    // Create the variables for the username and password commitments
-    let (username_var, password_var) = prover_transcript.commit(vec![username_commitment, password_commitment]);
-
-    // Create the constraints for the authentication
-    let username_correct = LinearCombination::from(username_var) - LinearCombination::from(Scalar::from(username.as_bytes()));
-    let password_correct = LinearCombination::from(password_var) - LinearCombination::from(Scalar::from(password.as_bytes()));
-    prover_transcript.constrain(username_correct);
-    prover_transcript.constrain(password_correct);
-
-    // Create the proof
-    let proof = prover_transcript.prove(&bp_gens);
-
-    // Verify the proof
-    let mut verifier_transcript = bulletproofs::r1cs::VerifierTranscript::new(&pc_gens);
-    assert!(proof.verify(&mut verifier_transcript, &vec![username_commitment, password_commitment], &vec![Scalar::from(username.as_bytes()), Scalar::from(password.as_bytes())])
-
-    // If the verification succeeds, the authentication is successful
-    println!("Authentication successful!");
+        let file = File::open("file.txt").unwrap();
+        let reader = BufReader::new(file);
+        for line in reader.lines() {
+            println!("{}", line.unwrap());
+        }
+    } else {
+        println!("Authentication failed!");
+    }
 }
