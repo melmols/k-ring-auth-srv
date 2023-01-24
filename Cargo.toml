@@ -11,6 +11,7 @@ rustc-cfg = ["nightly"]
 
 [dependencies]
 bellman = { version = "0.13.1" }
+bls12_381 = "0.7.1"
 pairing = "0.23"
 zksnark = "0.0.2"
 #bulletproofs = { git = "https://github.com/dalek-cryptography/bulletproofs", tag = "2.0.0" }
